@@ -35,6 +35,11 @@ class AddEditComment extends HTMLElement {
           background-color: transparent;
           font-style: italic;
         }
+        #controlButtons {
+          display: flex;
+          justify-content: space-between;
+          padding: 0px 10px 25px 10px;
+        }
         .controlButton {
           color: white;
           padding: 8px 10px;
@@ -42,13 +47,18 @@ class AddEditComment extends HTMLElement {
           cursor: pointer;
           border-radius: .25rem;
           font-size: 1.20rem;
+          opacity: .8;
+        }
+        .controlButton:hover {
+          opacity: 1;
         }
         #cancelButton {
           background-color: red;
           margin-left: 5px;
         }
         #submitButton {
-          background-color: black;
+          background-color: #3B4C62;
+          width: 100%;
         }
 
         .inactive {
@@ -56,6 +66,7 @@ class AddEditComment extends HTMLElement {
         }
 
         #errorMessages {
+          padding: 12px;
           color: red;
         }
 
@@ -118,8 +129,10 @@ class AddEditComment extends HTMLElement {
           </div>
         </st-show-hide-component>
         <div id="errorMessages"></div>
-        <button id="cancelButton" class="controlButton">Cancel</button>
-        <button id="submitButton" class="controlButton"></button>
+        <div id="controlButtons">
+          <button id="submitButton" class="controlButton"></button>
+          <button id="cancelButton" class="controlButton">Cancel</button>
+        </div>
       </div>`;
 
     return template.content.cloneNode(true);
@@ -168,21 +181,15 @@ class AddEditComment extends HTMLElement {
       this.updateAddCommentMode();
     }
 
-    this.addEventListener('pause-all-vertical-media-containers', event => {
+    this.shadowRoot.addEventListener('pause-all-vertical-media-containers', event => {
       //get all of the vertical media constainers and pause them
       const mediaContainers = this.shadowRoot.querySelectorAll('st-vertical-media-container');
       mediaContainers.forEach(mediaContainer => mediaContainer.pauseMedia());
     });
 
     //prevent normal text editing from firing any keyboard shortcuts
-    this.addEventListener('keydown', event => {
+    this.shadowRoot.addEventListener('keydown', event => {
       event.stopPropagation();
-    });
-
-    this.shadowRoot.addEventListener('click', () => {
-      //close the tag drop down menu when a click happens 
-      const commentTags = this.shadowRoot.querySelector('st-comment-tags');
-      commentTags.closeDropDown();
     });
   }
 
@@ -401,17 +408,47 @@ class AddEditComment extends HTMLElement {
 
     //comment text
     const commentText = this.shadowRoot.querySelector('#commentText');
+    
     //comment title
     const commentTitle = this.shadowRoot.querySelector('#commentTitle');
+    
     //comment question
     const createMultipleChoiceQuestion = this.shadowRoot.querySelector('st-create-multiple-choice-question');
     const qAndA = createMultipleChoiceQuestion.getMultipleChoiceQuestionData();
+    
     //media
     const imagesVMC = this.shadowRoot.querySelector('#imagesVMC').children[0];
     const videosVMC = this.shadowRoot.querySelector('#videosVMC').children[0];
     const audiosVMC = this.shadowRoot.querySelector('#audiosVMC').children[0];
+    const imageURLs = imagesVMC.getURLsInOrder();
+    const videoURLs = videosVMC.getURLsInOrder();
+    const audioURLs = audiosVMC.getURLsInOrder();
+    
     //tags
     const commentTags = this.shadowRoot.querySelector('st-comment-tags');
+    //get all of the tags specified by the user
+    const allTagsSet = new Set(commentTags.getAllTags());
+    //handle automatic tagging of media and questions
+    if(imageURLs.length === 0) {
+      allTagsSet.delete('image');
+    } else { //there is at least one image
+      allTagsSet.add('image');
+    }
+    if(videoURLs.length === 0) {
+      allTagsSet.delete('video');
+    } else { //there is at least one video
+      allTagsSet.add('video');
+    }
+    if(audioURLs.length === 0) {
+      allTagsSet.delete('audio');
+    } else { //there is at least one audio
+      allTagsSet.add('audio');
+    }
+    if (qAndA.questionState === 'valid question') {
+      allTagsSet.add('question');
+    } else {
+      allTagsSet.delete('question');
+    }
 
     //if there is a comment title or some comment text 
     if (commentTitle.value.trim() !== '' || commentText.getFormattedText() !== '') {
@@ -421,7 +458,7 @@ class AddEditComment extends HTMLElement {
       }
     } else { //there is no comment title or comment text
       //if there is some media
-      if (imagesVMC.getURLsInOrder().length > 0 || videosVMC.getURLsInOrder().length > 0 || audiosVMC.getURLsInOrder().length > 0) {
+      if (imageURLs.length > 0 || videoURLs.length > 0 || audioURLs.length > 0) {
         //if the question is ok, then this is a good comment
         if (qAndA.questionState === 'valid question' || qAndA.questionState === 'no question') {
           retVal.status = 'ok';
@@ -444,13 +481,13 @@ class AddEditComment extends HTMLElement {
         commentTitle: commentTitle.value,
         selectedCodeBlocks: [], //this will be set in CodeView
         viewableBlogText: '', //this will be set in CodeView
-        imageURLs: imagesVMC.getURLsInOrder(),
-        videoURLs: videosVMC.getURLsInOrder(),
-        audioURLs: audiosVMC.getURLsInOrder(),
+        imageURLs: imageURLs,
+        videoURLs: videoURLs,
+        audioURLs: audioURLs,
         linesAbove: 0, //this will be set in CodeView
         linesBelow: 0, //this will be set in CodeView
         currentFilePath: this.editedComment ? this.editedComment.currentFilePath : activeFilePath,
-        commentTags: commentTags.getAllTags(),
+        commentTags: [...allTagsSet], //all distinct tags with automatically added tags
         questionCommentData: qAndA.questionState === 'valid question' ? qAndA.questionData : null
       };
       //store the comment

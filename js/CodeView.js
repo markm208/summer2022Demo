@@ -6,6 +6,13 @@ class CodeView extends HTMLElement {
     this.width = window.innerWidth * .27;
     this.playbackEngine = playbackEngine;
 
+    //used to track the play/pause state of the playback
+    this.autoPlayback = {
+      isPaused: true,
+      playTimer: null,
+      playbackSpeedMs: 75,
+    };
+
     this.attachShadow({ mode: 'open' });
     this.shadowRoot.appendChild(this.getTemplate());
   }
@@ -98,7 +105,7 @@ class CodeView extends HTMLElement {
 
     //cancel the creating/editing of a comment
     this.shadowRoot.addEventListener('cancel-add-edit-comment', event => {
-      this.updateUIToCancelAddEditComment();
+      this.updateForCommentSelected();
     });
 
     //new comment successfully created
@@ -218,6 +225,27 @@ class CodeView extends HTMLElement {
       event.preventDefault();
     });
 
+    //playback speed increased
+    this.shadowRoot.addEventListener('increase-playback-speed', () => {
+      //if there is a code view make it go faster
+      this.adjustPlaybackSpeed(-25);
+    });
+
+    //playback speed decreased
+    this.shadowRoot.addEventListener('decrease-playback-speed', () => {
+      this.adjustPlaybackSpeed(50);
+    });
+
+    //request an increase in the editor font size
+    this.shadowRoot.addEventListener('increase-font', event => {
+      this.increaseEditorFontSize();
+    });
+
+    //request a decrease in the editor font size
+    this.shadowRoot.addEventListener('decrease-font', event => {
+      this.decreaseEditorFontSize();
+    });
+
     document.addEventListener('keydown', this.addKeyListeners);
   }
 
@@ -270,24 +298,16 @@ class CodeView extends HTMLElement {
       event.preventDefault();
       event.stopPropagation();
     } else if (ctrlPressed && shiftPressed && keyPressed === 'ArrowUp') { //ctrl + shift + up arrow press
-      //make the font bigger
-      this.editorProperties.fontSize = this.editorProperties.fontSize + 4;
-      //update the editor
-      this.updateEditorFontSize(this.editorProperties.fontSize);
-
+      this.increaseEditorFontSize();
       event.preventDefault();
       event.stopPropagation();
     } else if (ctrlPressed && shiftPressed && keyPressed === 'ArrowDown') { //ctrl + shift + down arrow press
-      //make the font smaller
-      this.editorProperties.fontSize = this.editorProperties.fontSize - 2;
-      //update the editor
-      this.updateEditorFontSize(this.editorProperties.fontSize);
-      
+      this.decreaseEditorFontSize();
       event.preventDefault();
       event.stopPropagation();
     } else if (event.code === 'Space') {
       //toggle play/pause 
-      this.pausePlayback(!this.playbackEngine.autoPlayback.isPaused);
+      this.pausePlayback(!this.autoPlayback.isPaused);
       event.preventDefault();
       event.stopPropagation();
     } else if (ctrlPressed && shiftPressed && keyPressed === 'Enter') {
@@ -339,6 +359,9 @@ class CodeView extends HTMLElement {
     //if the add/edit comment UI is visible then close it
     this.updateUIToCancelAddEditComment();
 
+    //notify with an event that the comments have changed
+    this.notifyAddEditDeleteComment();
+
     //if there are a different number of comment groups
     if(this.playbackEngine.mostRecentChanges.numberOfCommentGroupsChanged) {
       //update the editor's slider
@@ -372,9 +395,12 @@ class CodeView extends HTMLElement {
     }
   }
 
-  updateToDisplaySearchResults(searchResults){
+  updateToDisplaySearchResults(searchResults) {
     const playbackNavigator = this.shadowRoot.querySelector('st-playback-navigator');
     playbackNavigator.updateToDisplaySearchResults(searchResults);
+
+    const editorView = this.shadowRoot.querySelector('st-editor-view');
+    editorView.updateToDisplaySearchResults(searchResults);
   }
 
   updateUIToAddNewComment() {
@@ -387,6 +413,9 @@ class CodeView extends HTMLElement {
     const commentsSlot = this.shadowRoot.querySelector('.commentsSlot');
     commentsSlot.innerHTML = '';
     commentsSlot.appendChild(addEditComment);
+
+    //disable search
+    this.notifyDisableSearch();
   }
 
   updateUIToEditComment(comment) {
@@ -399,6 +428,9 @@ class CodeView extends HTMLElement {
     const commentsSlot = this.shadowRoot.querySelector('.commentsSlot');
     commentsSlot.innerHTML = '';
     commentsSlot.appendChild(addEditComment);
+
+    //disable search
+    this.notifyDisableSearch();
   }
 
   updateUIToCancelAddEditComment() {
@@ -413,6 +445,9 @@ class CodeView extends HTMLElement {
       //rebuild all comment views with a new playback nav
       this.addPlaybackNavigator();
     }
+
+    //enable search
+    this.notifyEnableSearch();
   }
 
   updateForTitleChange(newTitle) {
@@ -493,18 +528,35 @@ class CodeView extends HTMLElement {
 
   //used to switch from play->pause and pause->play
   pausePlayback = (newIsPaused) => {
-    if (newIsPaused === true) { //starting pause
-      //cancel timer
-      clearInterval(this.playbackEngine.autoPlayback.playTimer);
-      this.playbackEngine.autoPlayback.playTimer = null;
-    } else { //starting play
-      //start timer
-      if (this.playbackEngine.autoPlayback.playTimer === null && this.playbackEngine.mostRecentChanges.endingLocation !== 'end') {
-        //increment one event per interval
-        this.playbackEngine.autoPlayback.playTimer = setInterval(this.playNextEvent, this.playbackEngine.autoPlayback.playbackSpeedMs);
+    //if requesting to change to a different state
+    if(this.autoPlayback.isPaused !== newIsPaused) {
+      //starting pause
+      if (newIsPaused === true) { 
+        //cancel timer
+        clearInterval(this.autoPlayback.playTimer);
+        this.autoPlayback.playTimer = null;
+
+        //update the UI
+        const editorView = this.shadowRoot.querySelector('st-editor-view');
+        editorView.updateForPlaybackPause();
+
+        //store pause state
+        this.autoPlayback.isPaused = true;
+      } else { //starting play
+        //start timer if not at end 
+        if (this.autoPlayback.playTimer === null && this.playbackEngine.mostRecentChanges.endingLocation !== 'end') {
+          //increment one event per interval
+          this.autoPlayback.playTimer = setInterval(this.playNextEvent, this.autoPlayback.playbackSpeedMs);
+
+          //update the UI
+          const editorView = this.shadowRoot.querySelector('st-editor-view');
+          editorView.updateForPlaybackPlay();
+          
+          //store play state
+          this.autoPlayback.isPaused = false;
+        } //else- at end or timer already running, no change
       }
     }
-    this.playbackEngine.autoPlayback.isPaused = newIsPaused;
   }
 
   //interval function used to animate the events during a playback when the play button is pressed
@@ -618,14 +670,53 @@ class CodeView extends HTMLElement {
     const editorView = this.shadowRoot.querySelector('st-editor-view');
     editorView.updateEditorFontSize(newFontSize);
   }
-  
+  increaseEditorFontSize() {
+    //make the font bigger
+    this.editorProperties.fontSize = this.editorProperties.fontSize + 4;
+    //update the editor
+    this.updateEditorFontSize(this.editorProperties.fontSize);
+  }
+  decreaseEditorFontSize() {
+    //make the font smaller
+    this.editorProperties.fontSize = this.editorProperties.fontSize - 2;
+    //update the editor
+    this.updateEditorFontSize(this.editorProperties.fontSize);
+  }
+
   //adjusts playback speed
   adjustPlaybackSpeed(delta) {
     //adjust the playback speed
-    this.playbackEngine.autoPlayback.playbackSpeedMs += delta;
-    if(this.playbackEngine.autoPlayback.playbackSpeedMs < 0) {
-      this.playbackEngine.autoPlayback.playbackSpeedMs = 0;
+    this.autoPlayback.playbackSpeedMs += delta;
+    if(this.autoPlayback.playbackSpeedMs < 0) {
+      this.autoPlayback.playbackSpeedMs = 0;
     }
+  }
+
+  notifyDisableSearch() {
+    //send an event that the search functionality should be disabled
+    const event = new CustomEvent('disable-search', { 
+      bubbles: true, 
+      composed: true 
+    });
+    this.dispatchEvent(event);
+  }
+
+  notifyEnableSearch() {
+    //send an event that the search functionality should be enabled
+    const event = new CustomEvent('enable-search', { 
+      bubbles: true, 
+      composed: true 
+    });
+    this.dispatchEvent(event);
+  }
+
+  notifyAddEditDeleteComment() {
+    //send an event that a comment has been changed
+    const event = new CustomEvent('add-edit-delete-comment', { 
+      bubbles: true, 
+      composed: true 
+    });
+    this.dispatchEvent(event);
   }
 }
 

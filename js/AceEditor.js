@@ -5,6 +5,7 @@ class AceEditor extends HTMLElement {
     this.editorProperties = editorProperties;
     this.playbackEngine = playbackEngine;
     this.aceEditor = null;
+    this.searchText = '';
 
     //old line numbers need to be removed before adding new ones from a comment
     this.insertLineNumbers = [];
@@ -46,14 +47,14 @@ class AceEditor extends HTMLElement {
         }
 
         .selectedCodeHighlight {
-          background-color: rgb(199, 224, 241); 
-          opacity: 0.17;
+          background-color: rgb(199, 224, 241);
+          opacity: 0.14;
           position: absolute;
         }
 
         .surroundingCodeHighlight {
           background-color: rgb(158, 172, 182);
-          opacity: 0.05;
+          opacity: 0.04;
           position: absolute;
         }
 
@@ -124,6 +125,8 @@ class AceEditor extends HTMLElement {
   updateForCommentSelected() {
     //highlight any selected code from the selected comment
     this.addSelectedCodeAndSurroundingTextMarkers();
+    //if there is an active search highlight the code
+    this.highlightSearch();
   }
 
   updateForPlaybackMovement() {
@@ -160,6 +163,8 @@ class AceEditor extends HTMLElement {
       //go through the markers and highlight them
       this.addChangedCodeMarkers();
     }
+    //if there is an active search highlight the code
+    this.highlightSearch();
   }
 
   updateEditorFontSize(newFontSize) {
@@ -182,7 +187,7 @@ class AceEditor extends HTMLElement {
         //replace a comment's selected code blocks with actual ace selections
         this.playbackEngine.activeComment.selectedCodeBlocks.forEach(selectedCodeBlock => {
           const aceRange = new AceRange(selectedCodeBlock.startRow, selectedCodeBlock.startColumn, selectedCodeBlock.endRow, selectedCodeBlock.endColumn);
-          this.aceEditor.getSelection().addRange(aceRange);
+          this.aceEditor.getSelection().setSelectionRange(aceRange, false);
         });
         //update the lines above/below
         this.linesAboveSelection = this.playbackEngine.activeComment.linesAbove;
@@ -200,6 +205,7 @@ class AceEditor extends HTMLElement {
       this.aceEditor.off('changeSelection', this.handleSelectionLinesAboveBelow);
       //get rid of any selected context
       this.clearSurroundingTextMarker();
+      this.clearSelectedCode();
     }
   }
 
@@ -388,6 +394,10 @@ class AceEditor extends HTMLElement {
     this.deleteLineNumbers = [];
   }
 
+  clearSelectedCode() {
+    this.aceEditor.getSelection().clearSelection();
+  }
+
   getSelectedCodeInfo() {
     //get the selected text, the surrounding text, and the lines above/below
     let selectedCode = {
@@ -448,6 +458,32 @@ class AceEditor extends HTMLElement {
       });
     }
     return selectedCode;
+  }
+
+  highlightSearch() {
+    //if there is any search text to highlight
+    if(this.searchText.trim() !== '') {
+      //highlight the text in the editor
+      this.aceEditor.findAll(this.searchText, {
+        wrap: true,
+        preventScroll: true,
+      });
+    }
+  }
+
+  updateToDisplaySearchResults(searchResults) {
+    //store the search text
+    this.searchText = searchResults.searchText;
+    
+    //if the user is searching for something
+    if(this.searchText !== '') {
+      //highlight whatever they entered in the search box
+      this.highlightSearch();
+    } else { //the search is newly empty
+      //rerender the editor to get rid of all previous search results
+      this.updateForPlaybackMovement();
+      this.updateForCommentSelected();
+    }
   }
 }
 

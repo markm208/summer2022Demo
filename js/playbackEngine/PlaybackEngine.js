@@ -21,13 +21,6 @@ class PlaybackEngine {
     this.firstRelevantEventIndex = 1;
     this.numRelevantEvents = this.playbackData.events.length - 1;
 
-    //used to track the play/pause state of the playback
-    this.autoPlayback = {
-      isPaused: true,
-      playTimer: null,
-      playbackSpeedMs: 75,
-    };
-
     //holds the changes from a playback engine interaction
     this.mostRecentChanges = {
       endedOnAComment: false,
@@ -589,8 +582,38 @@ class PlaybackEngine {
     }
   }
 
-  performSearch(searchText){
-    const searchResults = [];
+  performSearch(searchText) {
+    //check for a specialized search: 'comment:searchText', 'code:searchText', 'tag:searchText', 'question:searchText'
+    let searchType = 'all';
+    const separatorPosition = searchText.indexOf(':');
+    if(separatorPosition !== -1) {
+      const firstPart = searchText.substring(0, separatorPosition);
+      const secondPart = searchText.substring(separatorPosition + 1);
+      if(firstPart === 'comment') {
+        searchType = firstPart;
+        searchText = secondPart;
+      } else if(firstPart === 'code') {
+        searchType = firstPart;
+        searchText = secondPart;
+      } else if(firstPart === 'tag') {
+        searchType = firstPart;
+        searchText = secondPart;
+      } else if(firstPart === 'question') {
+        searchType = firstPart;
+        searchText = secondPart;
+      }
+    }
+
+    //holds all of the search results keyed by comment id
+    const searchResults = {
+      searchText: searchText,
+      numberOfResults: 0,
+      details: {}
+    };
+
+    //reg ex to remove tags
+    const removeHTMLTagsRegEx = /(<([^>]+)>)/ig;
+    
     //search all the comments text, code and tags for the matching search text
     for(let eventId in this.playbackData.comments) {
       const commentsAtEvent = this.playbackData.comments[eventId];
@@ -603,34 +626,156 @@ class PlaybackEngine {
           inSelectedText: false,
           inCommentText: false,
           inTags: false,
+          inQuestion: false,
           searchText: searchText
         };
 
-        comment.selectedCodeBlocks.some(block => {
-          if(block.selectedText.toLowerCase().includes(searchText.toLowerCase())) {
-            isRelevantComment = true;
-            searchResult.inSelectedText = true;
-          }
-        });
+        //if it is a general search of a specific specialized search
+        if(searchType === 'all' || searchType === 'code') {
+          comment.selectedCodeBlocks.some(block => {
+            if(block.selectedText.toLowerCase().includes(searchText.toLowerCase())) {
+              isRelevantComment = true;
+              searchResult.inSelectedText = true;
+            }
+          });
+        }
 
-        if(comment.commentText.toLowerCase().includes(searchText.toLowerCase())) {
-          isRelevantComment = true;
-          searchResult.inCommentText = true;
-        }    
-      
-        if(comment.commentTags.some(tag => tag.toLowerCase().includes(searchText.toLowerCase()))) {
-          isRelevantComment = true;
-          searchResult.inTags = true;
+        if(searchType === 'all' || searchType === 'comment') {
+          //strip all html and make lowercase
+          const cleansedCommentText = comment.commentText.replace(removeHTMLTagsRegEx, '').toLowerCase();
+          const cleansedCommentTitle = comment.commentTitle.replace(removeHTMLTagsRegEx, '').toLowerCase();
+          //check the comment text and the comment title
+          if(cleansedCommentText.includes(searchText.toLowerCase()) || cleansedCommentTitle.includes(searchText.toLowerCase())) {
+            isRelevantComment = true;
+            searchResult.inCommentText = true;
+          }
+        }
+
+        if(searchType === 'all' || searchType === 'tag') {
+          if(comment.commentTags.some(tag => tag.toLowerCase().includes(searchText.toLowerCase()))) {
+            isRelevantComment = true;
+            searchResult.inTags = true;
+          }
+        }
+
+        if(searchType === 'all' || searchType === 'question') {
+          if(comment.questionCommentData) {
+            //strip all html and make lowercase
+            const cleansedQuestion = comment.questionCommentData.question.replace(removeHTMLTagsRegEx, '').toLowerCase();
+            if(cleansedQuestion.includes(searchText.toLowerCase())) {
+              isRelevantComment = true;
+              searchResult.inQuestion = true;
+            }
+
+            if(comment.questionCommentData.allAnswers.some(answer => answer.toLowerCase().includes(searchText.toLowerCase()))) {
+              isRelevantComment = true;
+              searchResult.inQuestion = true;
+            }
+            //strip all html and make lowercase
+            const cleansedExplanation = comment.questionCommentData.explanation.replace(removeHTMLTagsRegEx, '').toLowerCase();
+            if(comment.questionCommentData.explanation && cleansedExplanation.includes(searchText.toLowerCase())) {
+              isRelevantComment = true;
+              searchResult.inQuestion = true;
+            }
+          }
         }
 
         //collect the comments that have the search text
         if (isRelevantComment){
+          //store the comment id
           searchResult.commentId = comment.id;
-          searchResults.push(searchResult);
+          //add the search result  
+          searchResults.details[comment.id] = searchResult;
+          searchResults.numberOfResults++;
         }
       }
     }
     return searchResults;
+  }
+
+  replaceAllHTMLWithACharacter(htmlText, character=' ') {
+    //reg ex to remove tags
+    const removeHTMLTagsRegEx = /(<([^>]+)>)/ig;
+
+    const cleansedString = htmlText.replace(removeHTMLTagsRegEx, (match) => {
+      //replace the matched html with the passed in character
+      let retVal = '';
+      for(let i = 0;i < match.length;i++) {
+        retVal += character;
+      }
+      return retVal;
+    });
+    return cleansedString;
+  }
+
+  surroundHTMLTextWithTag(htmlString, searchText, openingTag, closingTag) {
+    //a character that will not show up in a the search text
+    const ignoreCharacter = '\0';
+
+    //replace all the html tags with the ignore character
+    const cleansedHTML = this.replaceAllHTMLWithACharacter(htmlString.toLowerCase(), ignoreCharacter);
+    const cleansedSearchText = searchText.toLowerCase();
+    
+    //positions where a match of the search text happened
+    const matchPositions = [];
+    //go through the entire string of html and look for an exact match
+    for(let i = 0;i < cleansedHTML.length;i++) {
+      //ignore the replaced html tags
+      const matchData = this.findMatch(i, cleansedHTML, cleansedSearchText, ignoreCharacter);
+      if(matchData.match) {
+        matchPositions.push(matchData);
+        //skip all of the found text to the next possible match
+        i = matchData.endPos;
+      }
+    }
+
+    //if there were any matches move through in reverse so as not to invalidate the match positions
+    for(let i = matchPositions.length - 1;i >= 0;i--) {
+      const matchData = matchPositions[i];
+      
+      //build up the new string with the search text wrapped in a new tag
+      const firstPart = htmlString.substring(0, matchData.startPos);
+      const middlePart = `${openingTag}${htmlString.substring(matchData.startPos, matchData.endPos + 1)}${closingTag}`;
+      const endPart = htmlString.substring(matchData.endPos + 1);
+      htmlString = firstPart + middlePart + endPart;
+    }
+
+    return htmlString;
+  }
+
+  findMatch(startPos, htmlText, searchText, ignoreCharacter) {
+    const retVal = {
+      match: false, //assume there was no match
+      startPos: startPos,
+      endPos: Number.MAX_SAFE_INTEGER
+    };
+
+    //position to compare in the passed in search text
+    let searchTextPos = 0;
+
+    //go through all of the characters in the html
+    for(let i = startPos;i < htmlText.length;i++) {
+      //if it is a character that should be evaluated
+      if(htmlText.charAt(i) !== ignoreCharacter) {
+        //if it does not match the search 
+        if(htmlText.charAt(i) !== searchText[searchTextPos]) {
+          break;
+        } //else- there is a match in the search text and the html
+        //update the end of the match
+        retVal.endPos = i;
+        //move to the next character of the search text
+        searchTextPos++;
+
+        //if all of the characters have been found
+        if(searchTextPos === searchText.length) {
+          //indicate success and stop looking
+          retVal.match = true;
+          break;
+        }
+      }
+    }
+
+    return retVal;
   }
 
   changePlaybackTitle(newTitle) {
@@ -643,6 +788,61 @@ class PlaybackEngine {
       retVal = this.playbackData.events[this.currentEventIndex];
     }
     return retVal;
+  }
+
+  getReadTimeEstimate() {
+    //some constants (that may need to change with some more experience)
+    const secondsPerCommentWord = .2525;
+    const secondsPerCodeWord = 1.0;
+    const secondsPerSurroundingCodeLine = 2.0;
+    const secondsPerImage = 12.0;
+    const secondsPerAudioVideo = 20.0;
+    const qAndAThinkTime = 15.0;
+    
+    //total estimated read time in seconds
+    let totalSeconds = 0.0;
+
+    //go through all of the events
+    for(let eventId in this.playbackData.comments) {
+      const commentsAtEvent = this.playbackData.comments[eventId];
+      for(let i = 0;i < commentsAtEvent.length;i++) {
+        const comment = commentsAtEvent[i];
+
+        //comment text
+        const numWordsInCommentText = comment.commentText.split(/\s+/g).length;
+        totalSeconds += numWordsInCommentText * secondsPerCommentWord;
+
+        //selected code
+        let selectedTextWordCount = 0;
+        comment.selectedCodeBlocks.forEach(selectedCodeBlock => {
+          selectedTextWordCount += selectedCodeBlock.selectedText.split(/\s+/g).length;
+        });
+        totalSeconds += selectedTextWordCount * secondsPerCodeWord;
+
+        //surrounding code
+        totalSeconds += comment.linesAbove * secondsPerSurroundingCodeLine;
+        totalSeconds += comment.linesBelow * secondsPerSurroundingCodeLine;
+
+        //for media in the comment
+        totalSeconds += comment.imageURLs.length * secondsPerImage;
+        totalSeconds += comment.videoURLs.length * secondsPerAudioVideo;
+        totalSeconds += comment.audioURLs.length * secondsPerAudioVideo;
+
+        //for questions
+        if(comment.questionCommentData && comment.questionCommentData.question) {
+          let qAndAWordCount = comment.questionCommentData.question.split(/\s+/g).length; 
+          qAndAWordCount += comment.questionCommentData.explanation.split(/\s+/g).length;
+          qAndAWordCount += comment.questionCommentData.allAnswers.reduce((totalWordCount, answer) => {
+            return totalWordCount + answer.split(/\s+/g).length
+          }, 0);
+
+          //time to read and think about the question and time to read the explanation
+          totalSeconds += (qAndAWordCount * secondsPerCommentWord) + qAndAThinkTime;
+        }
+      }
+    }
+    //return an estimate in minutes
+    return Math.ceil(totalSeconds / 60.0);
   }
 
   addComment(newComment) {

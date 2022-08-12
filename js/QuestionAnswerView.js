@@ -18,6 +18,10 @@ class QuestionAnswerView extends HTMLElement {
           margin: 0px 10px 8px 10px;
           box-shadow: rgba(0, 0, 0, 0.24) 0px 3px 8px;
         }
+        :host(.questionSearchHighlight) .questionAndAnswerContainer {
+          border: 1px solid lightgray;
+        }
+
         #questionText {
           padding-bottom: 5px;
         }
@@ -49,6 +53,7 @@ class QuestionAnswerView extends HTMLElement {
           background-color: inherit;
           border: 1px solid lightgray;
           color: lightgray;
+          cursor: pointer;
         }
         button:hover {
           background-color: lightgray;
@@ -56,6 +61,10 @@ class QuestionAnswerView extends HTMLElement {
           color: black;
         }
 
+        input[type='radio'] {
+          cursor: pointer;
+        }
+        
         .hidden {
           display: none;
         }

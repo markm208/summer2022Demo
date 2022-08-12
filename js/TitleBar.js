@@ -1,13 +1,14 @@
 class TitleBar extends HTMLElement {
   constructor(activeMode, playbackEngine) {
     super();
-    
-    this.attachShadow({ mode: 'open' });
-    this.shadowRoot.appendChild(this.getTemplate());
-    this.playbackEngine = playbackEngine;
 
+    this.playbackEngine = playbackEngine;
     this.activeMode = activeMode;
     this.playbackTitle = playbackEngine.playbackData.playbackTitle;
+    this.readTimeEstimateInMinutes = 0;
+
+    this.attachShadow({ mode: 'open' });
+    this.shadowRoot.appendChild(this.getTemplate());
   }
 
   getTemplate() {
@@ -17,7 +18,7 @@ class TitleBar extends HTMLElement {
       :host {
         background-color: rgb(59,76,98);
         color: rgb(223, 242, 244);
-        padding: 5px 10px 10px 10px;
+        padding: 2px 10px;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -53,9 +54,14 @@ class TitleBar extends HTMLElement {
 
       #editButton, #doneEditButton {
         opacity: 80%;
+        cursor: pointer;
       }
       #editButton:hover, #doneEditButton:hover {
         opacity: 100%;
+      }
+      #readTime {
+        font-size: .8em;
+        color: gray;
       }
       .hidden {
         display: none;
@@ -78,6 +84,7 @@ class TitleBar extends HTMLElement {
           <path d="M10.97 4.97a.75.75 0 0 1 1.071 1.05l-3.992 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.235.235 0 0 1 .02-.022z"/>
         </svg>
       </span>
+      <span id="readTime"></span>
     </div>
 
     <!-- search bar, code/blog mode buttons and options button -->
@@ -99,7 +106,6 @@ class TitleBar extends HTMLElement {
           <path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2zm10-1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1z"/>
         </svg>
       </button>      
-      <st-options-menu></st-options-menu>
     </div>`;
 
     return template.content.cloneNode(true);
@@ -112,9 +118,12 @@ class TitleBar extends HTMLElement {
       this.updateToBlogMode();
     }
 
+    //update the estimated read time
+    this.updateEstimatedReadTime();
+
     //set the title
     this.updatePlaybackTitle(this.playbackTitle);  
-  
+      
     //prevent normal text editing of the title from firing any keyboard shortcuts
     const playbackTitle = this.shadowRoot.querySelector('.playbackTitle');
     playbackTitle.addEventListener('keydown', event => {
@@ -165,6 +174,24 @@ class TitleBar extends HTMLElement {
     //update title
     const playbackTitle = this.shadowRoot.querySelector('.playbackTitle');
     playbackTitle.innerHTML = newTitle;
+    playbackTitle.setAttribute('title', `Estimated read time is about ${this.readTimeEstimateInMinutes} minutes.`);
+  }
+
+  updateEstimatedReadTime() {
+    //get the updated read time
+    this.readTimeEstimateInMinutes = this.playbackEngine.getReadTimeEstimate();
+
+    //display the read time for 10 seconds
+    const readTime = this.shadowRoot.querySelector('#readTime');
+    readTime.classList.remove('hidden');
+    readTime.innerHTML = `Estimated read time is about ${this.readTimeEstimateInMinutes} minutes`;
+    setTimeout(() => {
+      readTime.classList.add('hidden');
+    }, 10000);
+
+    //update the estimate in the hover text of the title
+    const playbackTitle = this.shadowRoot.querySelector('.playbackTitle');
+    playbackTitle.setAttribute('title', `Estimated read time is about ${this.readTimeEstimateInMinutes} minutes.`);
   }
 
   updateToCodeMode = () => { //anon fn because it is used as an event handler
@@ -188,16 +215,26 @@ class TitleBar extends HTMLElement {
     //notify the app of the mode change
     this.notifyModeSelected('blog');
   }
+  
+  updateForAddEditDeleteComment() {
+    //update the estimated read time
+    this.updateEstimatedReadTime();
+  }
 
   updateToDisplaySearchResults(searchText, searchResults) {
     //send the number of comments shown and total number of comments to the search bar
-    const titleBar = this.shadowRoot.querySelector('st-search-bar');
-    titleBar.updateToDisplaySearchResults(searchResults.length, this.playbackEngine.commentInfo.totalNumberOfComments, searchText);
+    const searchBar = this.shadowRoot.querySelector('st-search-bar');
+    searchBar.updateToDisplaySearchResults(searchResults.numberOfResults, this.playbackEngine.commentInfo.totalNumberOfComments, searchText);
   }
 
-  updateForModeChange(newMode) {
-    const optionsMenu = this.shadowRoot.querySelector('st-options-menu');
-    optionsMenu.updateForModeChange(newMode);
+  updateToEnableSearch() {
+    const searchBar = this.shadowRoot.querySelector('st-search-bar');
+    searchBar.updateToEnableSearch();
+  }
+
+  updateToDisableSearch() {
+    const searchBar = this.shadowRoot.querySelector('st-search-bar');
+    searchBar.updateToDisableSearch();
   }
 
   updateTitleBegin = event => {
@@ -223,6 +260,7 @@ class TitleBar extends HTMLElement {
 
     //prevent future editing
     const playbackTitle = this.shadowRoot.querySelector('.playbackTitle');
+    playbackTitle.setAttribute('title', `Estimated read time is about ${this.readTimeEstimateInMinutes} minutes.`);
     playbackTitle.removeAttribute('contenteditable');
     playbackTitle.blur();
 

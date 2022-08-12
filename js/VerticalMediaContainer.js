@@ -3,7 +3,7 @@
  * Allows user to change the order of media as well as removal. 
  * 
  * 
- * mediaType should be 'audio', 'video', or 'image' 
+ * mediaType must be 'audio', 'video', or 'image' 
  */
 class VerticalMediaContainer extends HTMLElement {
   constructor(mediaURLs, mediaType) {
@@ -35,14 +35,16 @@ class VerticalMediaContainer extends HTMLElement {
   getTemplate() {
     const template = document.createElement('template');
     const typeLabel = this.mediaType.charAt(0).toUpperCase() + this.mediaType.slice(1) + 's';
-    template.innerHTML = `<style> 
+    template.innerHTML = `
+    <style> 
       .draggable{
-          width: 100%;
+        width: 100%;
       }
 
       error{
-          color: red;
-          padding: 10px;
+        color: red;
+        font-weight: bold;
+        word-break: break-word;
       }
 
       .mediaContainer{
@@ -58,38 +60,60 @@ class VerticalMediaContainer extends HTMLElement {
       }
 
       .removeMedia{
-          cursor: pointer;
-          background-image: url("data:image/svg+xml,<svg viewBox='0 0 16 16' height='16' width='16' class='bi bi-x-lg' fill='red' xmlns='http://www.w3.org/2000/svg'><path d='M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z'/></svg>");
-          background-repeat: no-repeat;
-          background-color: transparent;
-          height: 1em;
-          width: 1em;
+        cursor: pointer;
+        background-image: url("data:image/svg+xml,<svg viewBox='0 0 16 16' height='16' width='16' class='bi bi-x-lg' fill='red' xmlns='http://www.w3.org/2000/svg'><path d='M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z'/></svg>");
+        background-repeat: no-repeat;
+        background-color: transparent;
+        height: 1em;
+        width: 1em;
       }
 
       .header {
         display: flex;
         justify-content: space-between;
+        align-items: center;
       }
 
       #typeLabel {
       }
-      #addNewMediaButton {
+      .newMediaButton {
         opacity: 80%;
-        padding: 5px 20px;
+        padding: 2px 10px;
+        cursor: pointer;
       }
-      #addNewMediaButton:hover {
+      .newMediaButton:hover {
         opacity: 100%;
+      }
+      
+      .hidden {
+        display: none;
       }
       </style>
       <div class="header">
         <span id="typeLabel">${typeLabel}</span>
-        <span id="addNewMediaButton" title="Click to add a new ${this.mediaType} here or paste a file.">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-lg" viewBox="0 0 16 16">
-            <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"/>
-          </svg>
+        <span>
+          <span id="addAudioButton" class="newMediaButton hidden" title="Click to add a new audio file from your mic.">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-mic" viewBox="0 0 16 16">
+              <path d="M3.5 6.5A.5.5 0 0 1 4 7v1a4 4 0 0 0 8 0V7a.5.5 0 0 1 1 0v1a5 5 0 0 1-4.5 4.975V15h3a.5.5 0 0 1 0 1h-7a.5.5 0 0 1 0-1h3v-2.025A5 5 0 0 1 3 8V7a.5.5 0 0 1 .5-.5z"/>
+              <path d="M10 8a2 2 0 1 1-4 0V3a2 2 0 1 1 4 0v5zM8 0a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V3a3 3 0 0 0-3-3z"/>
+            </svg>
+          </span>
+          <span id="addVideoButton" class="newMediaButton hidden" title="Click to add a new video from your web cam.">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-webcam" viewBox="0 0 16 16">
+              <path d="M0 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H9.269c.144.162.33.324.531.475a6.785 6.785 0 0 0 .907.57l.014.006.003.002A.5.5 0 0 1 10.5 13h-5a.5.5 0 0 1-.224-.947l.003-.002.014-.007a4.473 4.473 0 0 0 .268-.148 6.75 6.75 0 0 0 .639-.421c.2-.15.387-.313.531-.475H2a2 2 0 0 1-2-2V6Zm2-1a1 1 0 0 0-1 1v3a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1H2Z"/>
+              <path d="M8 6.5a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm-2 1a2 2 0 1 1 4 0 2 2 0 0 1-4 0Zm7 0a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0Z"/>
+            </svg>
+          </span>
+          <span id="addNewMediaButton" class="newMediaButton" title="Click to add a new ${this.mediaType} here from your file system (or paste a file).">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-plus-circle" viewBox="0 0 16 16">
+              <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+              <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+            </svg>
+          </span>
         </span>
       </div>
-      <div class='mediaContainer'></div>
+      <div id="createNewMediaContainer" class="hidden"></div>
+      <div class="mediaContainer"></div>
       <hr/>`;
 
     return template.content.cloneNode(true);
@@ -102,48 +126,26 @@ class VerticalMediaContainer extends HTMLElement {
       this.addMedia(mediaURL);
     })
 
-    //the + button to add new media
+    //the + button to add new media from the file system
     const addNewMediaButton = this.shadowRoot.querySelector('#addNewMediaButton');
     addNewMediaButton.addEventListener('click', this.createFileChooser);
 
+    if (this.mediaType === 'audio') {
+      //the add audio button
+      const addAudioButton = this.shadowRoot.querySelector('#addAudioButton');
+      addAudioButton.classList.remove('hidden');
+      addAudioButton.addEventListener('click', this.prepareToMakeAudioFile);
+    }
+
+    if (this.mediaType === 'video') {
+      //the add video
+      const addVideoButton = this.shadowRoot.querySelector('#addVideoButton');
+      addVideoButton.classList.remove('hidden');
+      addVideoButton.addEventListener('click', this.prepareToMakeVideoFile);
+    }
+
     //the paste file event handler
-    window.addEventListener("paste", pasteEvent => {
-      //check for clipboard data
-      if (pasteEvent.clipboardData) {
-        //whether the paste data has media files or not
-        let pasteHasFiles = false;
-        let acceptableMimeTypes;
-
-        //acceptable image mime types
-        if (this.mediaType === 'image') {
-          acceptableMimeTypes = this.acceptableImageMimeTypes;
-        } else if (this.mediaType === 'video') {
-          acceptableMimeTypes = this.acceptableVideoMimeTypes;
-        } else if (this.mediaType === 'audio') {
-          acceptableMimeTypes = this.acceptableAudioMimeTypes;
-        }
-
-        //get all of the files on the clipboard
-        const files = pasteEvent.clipboardData.files;
-        //go through the clipboard files if there are any
-        for (let i = 0; i < files.length; i++) {
-          //if the clipboard data has any files and they are acceptable images
-          if (acceptableMimeTypes.includes(files[i].type)) {
-            //indicate that media files will be added to the comment
-            pasteHasFiles = true;
-            break;
-          }
-        }
-        //if new images will be added to the media pop up
-        if (pasteHasFiles) {
-          //prevent a paste in the comment text box if it has the focus
-          pasteEvent.preventDefault();
-
-          //add the files from the clipboard to the comment
-          this.sendFilesToServer(pasteEvent.clipboardData.files);
-        }
-      }
-    });
+    document.addEventListener('paste', this.handlePaste);
 
     //dragging and dropping existing media
     mediaContainer.addEventListener('dragover', event => {
@@ -160,31 +162,67 @@ class VerticalMediaContainer extends HTMLElement {
           mediaContainer.insertBefore(draggable.parentElement, afterElement.parentElement);
         }
       }
-    })
+    });
 
-    //TODO add ability to drop media files in from operating system
-    mediaContainer.addEventListener('drop', event => {
-      var data = event.dataTransfer.getData('text/html');
-      if (data === 'internal-drag') {
-        //TODO is this being used??
-      } else if (event.dataTransfer.files) {
-        const temp = event.dataTransfer.files;
-        for (let i = 0; i < temp.length; i++) {
-          const file = temp[i];
-          console.log(file.name);
-        }
-      }
+    document.addEventListener("dragover", function (e) { e.preventDefault() }, false);
 
-      event.preventDefault();
-      event.stopPropagation();
-    })
+    document.addEventListener('drop', this.handleExternalDrop);
+
+    this.shadowRoot.addEventListener('video-upload', event => {
+      const files = [event.detail.fileData];
+      this.sendFilesToServer(files);
+    });
+
+    this.shadowRoot.addEventListener('audio-upload', event => {
+      const files = [event.detail.fileData];
+      this.sendFilesToServer(files);
+    });
   }
 
   disconnectedCallback() {
-    if(this.newMediaURLsToAdd.length > 0) {
+    if (this.newMediaURLsToAdd.length > 0) {
       //delete any media explicitly added by the user but not committed
       this.deleteMedia(this.newMediaURLsToAdd);
     }
+
+    document.removeEventListener('paste', this.handlePaste);
+    document.removeEventListener("dragover", function (e) { e.preventDefault() }, false);
+    document.removeEventListener('drop', this.handleExternalDrop);
+  }
+
+  handleExternalDrop = () => {
+    event.preventDefault();
+    var data = event.dataTransfer.getData('text/html');
+
+    //checking for 'internal-drag' prevents the server from being called when files are dropped to reorder existing files
+    if (data !== 'internal-drag' && event.dataTransfer.files) {
+      const allDroppedFiles = event.dataTransfer.files;
+      const acceptableMimeTypes = this.getAcceptableMimeTypes();
+      let validMediaFiles = [];
+
+      for (let i = 0; i < allDroppedFiles.length; i++) {
+        const thisFile = allDroppedFiles[i];
+        if (acceptableMimeTypes.includes(thisFile.type)) {
+          validMediaFiles.push(allDroppedFiles[i]);
+        }
+      }
+
+      if (validMediaFiles.length) {
+        this.sendFilesToServer(validMediaFiles);
+      }
+    }
+  }
+
+  getAcceptableMimeTypes() {
+    let acceptableMimeTypes;
+    if (this.mediaType === 'image') {
+      acceptableMimeTypes = this.acceptableImageMimeTypes;
+    } else if (this.mediaType === 'video') {
+      acceptableMimeTypes = this.acceptableVideoMimeTypes;
+    } else if (this.mediaType === 'audio') {
+      acceptableMimeTypes = this.acceptableAudioMimeTypes;
+    }
+    return acceptableMimeTypes;
   }
 
   createFileChooser = event => {
@@ -212,6 +250,32 @@ class VerticalMediaContainer extends HTMLElement {
     fileInput.click();
   }
 
+  handlePaste = pasteEvent => {
+    //check for clipboard data
+    if (pasteEvent.clipboardData) {
+      const acceptableMimeTypes = this.getAcceptableMimeTypes();
+      let validPasteFiles = [];
+
+      //get all of the files on the clipboard
+      const files = pasteEvent.clipboardData.files;
+      //go through the clipboard files if there are any
+      for (let i = 0; i < files.length; i++) {
+        //if the clipboard data has any files and they are acceptable images
+        if (acceptableMimeTypes.includes(files[i].type)) {
+          validPasteFiles.push(files[i]);
+        }
+      }
+
+      if (validPasteFiles.length) {
+        //prevent a paste in the comment text box if it has the focus
+        pasteEvent.preventDefault();
+
+        //add the files from the clipboard to the comment
+        this.sendFilesToServer(validPasteFiles);
+      }
+    }
+  }
+
   async sendFilesToServer(files) {
     const serverProxy = new ServerProxy();
     let serverMethod;
@@ -232,7 +296,7 @@ class VerticalMediaContainer extends HTMLElement {
     newFilePaths.forEach(newFilePath => {
       //add the new url to all of the url for this component
       this.mediaURLs.push(newFilePath);
-      
+
       //add it to a list so that it can be deleted if the comment is abandoned
       this.newMediaURLsToAdd.push(newFilePath);
 
@@ -307,19 +371,26 @@ class VerticalMediaContainer extends HTMLElement {
       mediaContainer.removeChild(mediaDiv);
 
       //don't delete yet, add the url to be deleted later
-      this.newMediaURLsToDelete.push(mediaURL);
+      //the URL may have been added with the error eventListener
+      if (!this.newMediaURLsToDelete.includes(mediaURL)){
+        this.newMediaURLsToDelete.push(mediaURL);
+      }
     });
 
-    //if an error exists with the media, show an error message and allow user to remove media
+    //if an error exists with the media, show an error message, delete the media from the server,
+    //and allow user to remove it
     media.addEventListener('error', () => {
+      const fileName = mediaURL.substring(mediaURL.indexOf('-') + 1);
       const error = document.createElement('span');
-      error.innerHTML = `Error with file: <b><error>${media.src}</error></b>`;
+      error.innerHTML = `Error with file: <error>${fileName}</error>`;
       removeMediaButton.title = 'Remove file';
 
       //replace the file with an error message and move it to the top of the media container
       media.replaceWith(error);
       mediaContainer.removeChild(mediaDiv);
-      mediaContainer.firstChild.after(mediaDiv);
+      mediaContainer.prepend(mediaDiv);
+
+      this.newMediaURLsToDelete.push(mediaURL);
     });
 
     mediaDiv.appendChild(media);
@@ -407,6 +478,35 @@ class VerticalMediaContainer extends HTMLElement {
       }
     }
   }
-}
 
+  prepareToMakeVideoFile = () => {
+    const createNewMediaContainer = this.shadowRoot.querySelector('#createNewMediaContainer');
+    //if the 'create new' container is hidden 
+    if (createNewMediaContainer.classList.contains('hidden')) {
+      //make it visible and add a video recorder
+      createNewMediaContainer.classList.remove('hidden');
+      const videoRecorder = new AudioVideoRecorder('video');
+      createNewMediaContainer.appendChild(videoRecorder);
+    } else { //its not hidden
+      //make it invisible and clear it out
+      createNewMediaContainer.classList.add('hidden');
+      createNewMediaContainer.innerHTML = '';
+    }
+  }
+
+  prepareToMakeAudioFile = () => {
+    const createNewMediaContainer = this.shadowRoot.querySelector('#createNewMediaContainer');
+    //if the 'create new' container is hidden 
+    if (createNewMediaContainer.classList.contains('hidden')) {
+      //make it visible and add an audio recorder
+      createNewMediaContainer.classList.remove('hidden');
+      const audioRecorder = new AudioVideoRecorder('audio');
+      createNewMediaContainer.appendChild(audioRecorder);
+    } else { //its not hidden
+      //make it invisible and clear it out
+      createNewMediaContainer.classList.add('hidden');
+      createNewMediaContainer.innerHTML = '';
+    }
+  }
+}
 window.customElements.define('st-vertical-media-container', VerticalMediaContainer);

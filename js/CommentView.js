@@ -20,6 +20,10 @@ class CommentView extends HTMLElement {
           display: block;
           border: 1px gray solid;
           padding: 3px 12px;
+          background-color: rgb(51, 51, 51);
+        }
+        :host(.activeGroup) {
+          background-color: rgb(60, 60, 60);
         }
         :host(.activeComment) {
           background-color: rgb(59,76,98);
@@ -27,6 +31,7 @@ class CommentView extends HTMLElement {
         :host(.nonRelevantSearchResult) {
           display: none;
         }
+
         #editCommentButton {
           opacity: 80%;
           visibility: hidden;
@@ -37,6 +42,7 @@ class CommentView extends HTMLElement {
           height: 1.6em;
           width: 1.6em;
           border: none;
+          cursor: pointer;
         }
         #editCommentButton:hover {
           opacity: 100%;
@@ -74,7 +80,6 @@ class CommentView extends HTMLElement {
           padding: 5px;
           margin-left: -8px;
           font-size: 1.2em;
-          font-style: italic;
         }
 
         .commentAvatar {
@@ -102,17 +107,18 @@ class CommentView extends HTMLElement {
         .inactive {
           display: none;
         }
+
+        .searchHighlight {
+          background-color: #517EB0;
+        }
       </style>
       <div>
-        <div>
-          <div class="commentTopBar"></div>
-          <div class="commentTitle"></div>
-          <div class="commentText"></div>
-          <div class="media"></div>
-          <div class="questions"></div>
-          <div class="questionAndAnswerContainer"></div>
-          <div class="tagContainer"></div>
-        </div>
+        <div class="commentTopBar"></div>
+        <div class="commentTitle"></div>
+        <div class="commentText"></div>
+        <div class="media"></div>
+        <div class="questionAndAnswerContainer"></div>
+        <div class="tagContainer"></div>
         <button id="editCommentButton" class="inactive" title="Edit this comment"></button>
       </div>`;
 
@@ -198,20 +204,26 @@ class CommentView extends HTMLElement {
     //get the rectangle around the active comment that is displayed
     const commentRectangle = this.shadowRoot.host.getBoundingClientRect();
 
-    //if the comment's top/bottom edge is  off of the screen (+/- 100px)
-    if (commentRectangle.bottom - 100 < 0 || commentRectangle.top > window.innerHeight - 100) {
+    //if the comment's top/bottom edge is  off of the screen (+/- 150px)
+    if ((commentRectangle.bottom - 150 < 0) || (commentRectangle.top > window.innerHeight - 150) ) {
       //scroll to the active comment
       this.shadowRoot.host.scrollIntoView({behavior: 'auto', block: 'center', inline: 'start'})
     }
+  }
+  makeCommentViewInactive() {
+    this.shadowRoot.host.classList.remove('activeComment');
+  }
+
+  makePartOfActiveGroup() {
+    this.shadowRoot.host.classList.add('activeGroup');
+  }
+  makePartOfInactiveGroup() {
+    this.shadowRoot.host.classList.remove('activeGroup');
   }
 
   updateForTitleChange(newTitle) {
     const titleBar = this.shadowRoot.querySelector('.titleBar');
     titleBar.innerHTML = newTitle;
-  }
-
-  makeCommentViewInactive() {
-    this.shadowRoot.host.classList.remove('activeComment');
   }
 
   beginEditComment = (clickEvent) => {
@@ -259,6 +271,57 @@ class CommentView extends HTMLElement {
       commentBar.appendChild(devGroup);
       commentBar.appendChild(commentCount);
       commentTopBar.appendChild(commentBar);
+    }
+  }
+
+  updateToDisplaySearchResults(searchResult) {
+    //if there is some search text
+    if(searchResult.searchText.length > 0) {
+      //if there is a result in the tags
+      if(searchResult.inTags) {
+        const tagView = this.shadowRoot.querySelector('st-tag-view');
+        tagView.highlightTag(searchResult.searchText);
+      }
+
+      //if there is a result in the comment text
+      if(searchResult.inCommentText) {
+        const commentText = this.shadowRoot.querySelector('.commentText');
+        //surround each instance of the search text with a tag
+        let replacedString = this.playbackEngine.surroundHTMLTextWithTag(commentText.innerHTML, searchResult.searchText, '<span class="searchHighlight">', '</span>');
+        commentText.innerHTML = replacedString;
+
+        const commentTitle = this.shadowRoot.querySelector('.commentTitle');
+        //surround each instance of the search text with a tag
+        replacedString = this.playbackEngine.surroundHTMLTextWithTag(commentTitle.innerHTML, searchResult.searchText, '<span class="searchHighlight">', '</span>');
+        commentTitle.innerHTML = replacedString;
+      }
+
+      //if there is a result in the question
+      if(searchResult.inQuestion) {
+        const questionAnswerView = this.shadowRoot.querySelector('st-question-answer-view');
+        questionAnswerView.classList.add('questionSearchHighlight');
+      }
+    }
+  }
+
+  revealCommentsBeforeSearch() {
+    const tagView = this.shadowRoot.querySelector('st-tag-view');
+    if(tagView) {
+      //clear out the tags
+      tagView.dehighlightTags();
+    }
+
+    //set the text back to the original
+    const commentText = this.shadowRoot.querySelector('.commentText');
+    commentText.innerHTML = this.comment.commentText;
+
+    const commentTitle = this.shadowRoot.querySelector('.commentTitle');
+    commentTitle.innerHTML = this.comment.commentTitle;
+
+    //remove the search highlight
+    const questionAnswerView = this.shadowRoot.querySelector('st-question-answer-view');
+    if(questionAnswerView) {
+      questionAnswerView.classList.remove('questionSearchHighlight');
     }
   }
 

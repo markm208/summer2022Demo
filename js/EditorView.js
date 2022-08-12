@@ -67,6 +67,16 @@ class EditorView extends HTMLElement {
     aceEditor.updateForCommentSelected();
   }
 
+  updateForPlaybackPause() {
+    const playbackControls = this.shadowRoot.querySelector('st-playback-controls');
+    playbackControls.updateForPlaybackPause();
+  }
+  
+  updateForPlaybackPlay() {
+    const playbackControls = this.shadowRoot.querySelector('st-playback-controls');
+    playbackControls.updateForPlaybackPlay();
+  }
+
   updateEditorFontSize(newFontSize) {
     const aceEditor = this.shadowRoot.querySelector('st-ace-editor');
     aceEditor.updateEditorFontSize(newFontSize);
@@ -80,6 +90,11 @@ class EditorView extends HTMLElement {
   updateLinesAboveBelow(linesAbove, linesBelow) {
     const aceEditor = this.shadowRoot.querySelector('st-ace-editor');
     aceEditor.updateLinesAboveBelow(linesAbove, linesBelow);
+  }
+
+  updateToDisplaySearchResults(searchResults) {
+    const aceEditor = this.shadowRoot.querySelector('st-ace-editor');
+    aceEditor.updateToDisplaySearchResults(searchResults);
   }
 
   getSelectedCodeInfo() {

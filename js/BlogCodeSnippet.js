@@ -4,6 +4,7 @@ class BlogCodeSnippet extends HTMLElement {
 
     this.comment = comment;
     this.editorProperties = editorProperties;
+    this.aceEditor = null;
 
     this.attachShadow({ mode: 'open' });
     this.shadowRoot.appendChild(this.getTemplate());
@@ -70,7 +71,7 @@ class BlogCodeSnippet extends HTMLElement {
 
     //create the editor with the code snippet
     const codeSnippet = this.shadowRoot.querySelector('.codeSnippet');
-    const aceEditor = ace.edit(codeSnippet, {
+    this.aceEditor = ace.edit(codeSnippet, {
       theme: this.editorProperties.aceTheme,
       mode: this.getEditorModeForFilePath(this.comment.currentFilePath),
       value: this.comment.viewableBlogText,
@@ -80,20 +81,21 @@ class BlogCodeSnippet extends HTMLElement {
       firstLineNumber: snippetStartLineNumber + 1,
       maxLines: numLines,
       highlightActiveLine: false,
-      highlightGutterLine: false
+      highlightGutterLine: false,
+      useWorker: false,
     });
 
     //go through the markers and highlight them
     allMarkers.forEach(marker => {
       //create a marker in the right range
       const aceRange = new AceRange(marker.startRow - snippetStartLineNumber, marker.startColumn, marker.endRow - snippetStartLineNumber, marker.endColumn);
-      aceEditor.getSession().addMarker(aceRange, marker.className, marker.type, true);
+      this.aceEditor.getSession().addMarker(aceRange, marker.className, marker.type, true);
     });
 
     //attach the ace editor to the shadow dom
-    aceEditor.renderer.attachToShadowRoot();
+    this.aceEditor.renderer.attachToShadowRoot();
     //hide the cursor
-    aceEditor.renderer.$cursorLayer.element.style.display = "none";
+    this.aceEditor.renderer.$cursorLayer.element.style.display = "none";
 
     //display the file name above the snippet
     const fileName = this.shadowRoot.querySelector('.fileName');
@@ -114,6 +116,17 @@ class BlogCodeSnippet extends HTMLElement {
       retVal = fileMode.mode;
     }
     return retVal;
+  }
+
+  highlightSearch(searchText) {
+    //if there is any search text to highlight
+    if(searchText.trim() !== '') {
+      //highlight the text in the editor
+      this.aceEditor.findAll(searchText, {
+        wrap: true,
+        preventScroll: true,
+      });
+    }
   }
 }
 
